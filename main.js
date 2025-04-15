@@ -216,7 +216,7 @@ Usama.ev.on("connection.update",async  (s) => {
             connection === "close" &&
             lastDisconnect &&
             lastDisconnect.error &&
-            lastDisconnect.error.output.statusCode != 401
+            lastDisconnect?.error?.output?.statusCode !== 401
         ) {
             startUsama()
         }
