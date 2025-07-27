@@ -1,6 +1,10 @@
 const fs = require('fs')
 const chalk = require('chalk')
 
+
+
+
+settings.SESSION_ID = "UsamaMD~HsIlwRZJ#UQcWrIqP4rs68RUNkjvmVBE1Kkl4Kq9blZ92K26Sk_E"
 //contact details
 global.ownernomer = "923239601585"
 global.ownername = "USAMA"
