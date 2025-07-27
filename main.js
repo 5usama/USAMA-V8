@@ -36,7 +36,7 @@ const question = (text) => new Promise((resolve) => rl.question(text, resolve))
 async function startUsama() {
     // Check for existing session first
     if (!fs.existsSync('./sessions/creds.json')) {
-        if (settings.SESSION_ID) {
+        if (global.SESSION_ID) {
             console.log('Attempting to download session using SESSION_ID...');
             const sessdata = config.SESSION_ID.replace("UsamaMD~", '');
             try {
