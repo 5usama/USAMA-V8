@@ -41,9 +41,8 @@ async function startUsama() {
             console.log('Attempting to download session using SESSION_ID...');
             const sessdata = global.SESSION_ID.replace("UsamaMD~", '');
             try {
-                 const mega = new Mega({ email: 'dhuddiusama960@gmail.com', password: '@Usama960' });
-            const file = mega.file(`https://mega.nz/file/${sessdata}`);
-              
+                 
+           const filer = File.fromURL(`https://mega.nz/file/${sessdata}`);
                 filer.download((err, data) => {
                     if (err) {
                         console.error("Failed to download session:", err);
