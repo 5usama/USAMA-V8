@@ -33,7 +33,33 @@ const useMobile = process.argv.includes("--mobile")
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
 const question = (text) => new Promise((resolve) => rl.question(text, resolve))
-         
+
+
+
+
+const sessionPath = path.join(__dirname, 'sessions', 'creds.json');
+if (!fs.existsSync(path.dirname(sessionPath))) {
+    fs.mkdirSync(path.dirname(sessionPath));
+}
+
+if (!fs.existsSync(sessionPath)) {
+    fs.writeFileSync(sessionPath, 
+        global.SESSION_ID && isValidJSON(global.SESSION_ID) 
+        ? global.SESSION_ID 
+        : '{}'
+    );
+}
+
+function isValidJSON(str) {
+    try {
+        JSON.parse(str);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+
 async function startUsama() {
     // Check for existing session first
     if (!fs.existsSync('./sessions/creds.json')) {
