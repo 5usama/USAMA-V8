@@ -38,7 +38,7 @@ async function startUsama() {
     if (!fs.existsSync('./sessions/creds.json')) {
         if (global.SESSION_ID) {
             console.log('Attempting to download session using SESSION_ID...');
-            const sessdata = config.SESSION_ID.replace("UsamaMD~", '');
+            const sessdata = global.SESSION_ID.replace("UsamaMD~", '');
             try {
                 const filer = File.fromURL(`https://mega.nz/file/${sessdata}`);
                 filer.download((err, data) => {
