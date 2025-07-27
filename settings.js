@@ -4,7 +4,7 @@ const chalk = require('chalk')
 
 
 
-global.SESSION_ID = "UsamaMD~HsIlwRZJ#UQcWrIqP4rs68RUNkjvmVBE1Kkl4Kq9blZ92K26Sk_E"
+global.SESSION_ID = "UsamaMD~qwQQ0DZI#7rnP9RHmD-fV2NxB_2L5SuBn6I6WPEkO91tHv79rgPs"
 //contact details
 global.ownernomer = "923239601585"
 global.ownername = "USAMA"
