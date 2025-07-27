@@ -9,7 +9,6 @@ const axios = require('axios')
 const PhoneNumber = require('awesome-phonenumber')
 const PHONENUMBER_MCC = require('./lib/mcc.json')
 const { imageToWebp, videoToWebp, writeExifImg, writeExifVid } = require('./lib/exif')
-
 const { smsg, isUrl, generateMessageTag, getBuffer, getSizeMedia, fetch, await, sleep, reSize } = require('./lib/myfunc')
 const { default: UsamaConnect, delay, makeCacheableSignalKeyStore, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, generateForwardMessageContent, prepareWAMessageMedia, generateWAMessageFromContent, generateMessageID, downloadContentFromMessage, makeInMemoryStore, jidDecode, proto } = require("@whiskeysockets/baileys")
 const NodeCache = require("node-cache")
@@ -35,47 +34,69 @@ const rl = readline.createInterface({ input: process.stdin, output: process.stdo
 const question = (text) => new Promise((resolve) => rl.question(text, resolve))
          
 async function startUsama() {
-//------------------------------------------------------
-let { version, isLatest } = await fetchLatestBaileysVersion()
-const {  state, saveCreds } =await useMultiFileAuthState(`./session`)
+    // Check for existing session first
+    if (!fs.existsSync('./sessions/creds.json')) {
+        if (settings.SESSION_ID) {
+            console.log('Attempting to download session using SESSION_ID...');
+            const sessdata = config.SESSION_ID.replace("UsamaMD~", '');
+            try {
+                const filer = File.fromURL(`https://mega.nz/file/${sessdata}`);
+                filer.download((err, data) => {
+                    if (err) {
+                        console.error("Failed to download session:", err);
+                        fs.writeFileSync('./sessions/creds.json', '{}');
+                        console.log("Created empty session file, will use pairing code if needed");
+                    } else {
+                        fs.writeFileSync('./sessions/creds.json', data);
+                        console.log("UsamaMD Session downloaded ✅");
+                    }
+                });
+            } catch (e) {
+                console.error("Session download error:", e);
+                fs.writeFileSync('./sessions/creds.json', '{}');
+            }
+        }
+    }
+
+    let { version, isLatest } = await fetchLatestBaileysVersion()
+    const { state, saveCreds } = await useMultiFileAuthState(`./session`)
     const msgRetryCounterCache = new NodeCache() // for retry message, "waiting message"
+    
     const Usama = makeWASocket({
         logger: pino({ level: 'silent' }),
         printQRInTerminal: !pairingCode, // popping up QR in terminal log
-      browser: [ "Ubuntu", "Chrome", "20.0.04" ], // for this issues https://github.com/WhiskeySockets/Baileys/issues/328
-     auth: {
-         creds: state.creds,
-         keys: makeCacheableSignalKeyStore(state.keys, Pino({ level: "fatal" }).child({ level: "fatal" })),
-      },
-      markOnlineOnConnect: true, // set false for offline
-      generateHighQualityLinkPreview: true, // make high preview link
-      getMessage: async (key) => {
-         let jid = jidNormalizedUser(key.remoteJid)
-         let msg = await store.loadMessage(jid, key.id)
-
-         return msg?.message || ""
-      },
-      msgRetryCounterCache, // Resolve waiting messages
-      defaultQueryTimeoutMs: undefined, // for this issues https://github.com/WhiskeySockets/Baileys/issues/276
-   })
+        browser: [ "Ubuntu", "Chrome", "20.0.04" ], // for this issues https://github.com/WhiskeySockets/Baileys/issues/328
+        auth: {
+            creds: state.creds,
+            keys: makeCacheableSignalKeyStore(state.keys, Pino({ level: "fatal" }).child({ level: "fatal" })),
+        },
+        markOnlineOnConnect: true, // set false for offline
+        generateHighQualityLinkPreview: true, // make high preview link
+        getMessage: async (key) => {
+            let jid = jidNormalizedUser(key.remoteJid)
+            let msg = await store.loadMessage(jid, key.id)
+            return msg?.message || ""
+        },
+        msgRetryCounterCache, // Resolve waiting messages
+        defaultQueryTimeoutMs: undefined, // for this issues https://github.com/WhiskeySockets/Baileys/issues/276
+    })
    
-   store.bind(Usama.ev)
+    store.bind(Usama.ev)
 
-    // login use pairing code
-   // source code https://github.com/WhiskeySockets/Baileys/blob/master/Example/example.ts#L61
-   if (pairingCode && !Usama.authState.creds.registered) {
-      if (useMobile) throw new Error('Cannot use pairing code with mobile api')
+    // login use pairing code (only if no existing session)
+    if (pairingCode && !Usama.authState.creds.registered && !fs.existsSync('./sessions/creds.json')) {
+        if (useMobile) throw new Error('Cannot use pairing code with mobile api')
 
-      let phoneNumber
-      if (!!phoneNumber) {
-         phoneNumber = phoneNumber.replace(/[^0-9]/g, '')
+        let phoneNumber
+        if (!!phoneNumber) {
+            phoneNumber = phoneNumber.replace(/[^0-9]/g, '')
 
-         if (!Object.keys(PHONENUMBER_MCC).some(v => phoneNumber.startsWith(v))) {
-            console.log(chalk.bgBlack(chalk.redBright("Start with country code of your WhatsApp Number, Example : +923239601585")))
-            process.exit(0)
-         }
-      } else {
-         phoneNumber = await question(chalk.bgBlack(chalk.greenBright(`
+            if (!Object.keys(PHONENUMBER_MCC).some(v => phoneNumber.startsWith(v))) {
+                console.log(chalk.bgBlack(chalk.redBright("Start with country code of your WhatsApp Number, Example : +923239601585")))
+                process.exit(0)
+            }
+        } else {
+            phoneNumber = await question(chalk.bgBlack(chalk.greenBright(`
 ██╗   ██╗███████╗ █████╗ ███╗   ███╗ █████╗ 
 ██║   ██║██╔════╝██╔══██╗████╗ ████║██╔══██╗
 ██║   ██║███████╗███████║██╔████╔██║███████║
@@ -83,13 +104,13 @@ const {  state, saveCreds } =await useMultiFileAuthState(`./session`)
 ╚██████╔╝███████║██║  ██║██║ ╚═╝ ██║██║  ██║
  ╚═════╝ ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝╚═╝  ╚═╝
  Please type your WhatsApp number 😍\nFor example: +923239601585 : `)))
-         phoneNumber = phoneNumber.replace(/[^0-9]/g, '')
+            phoneNumber = phoneNumber.replace(/[^0-9]/g, '')
 
-         // Ask again when entering the wrong number
-         if (!Object.keys(PHONENUMBER_MCC).some(v => phoneNumber.startsWith(v))) {
-            console.log(chalk.bgBlack(chalk.redBright("Start with country code of your WhatsApp Number, Example : +923239601585")))
+            // Ask again when entering the wrong number
+            if (!Object.keys(PHONENUMBER_MCC).some(v => phoneNumber.startsWith(v))) {
+                console.log(chalk.bgBlack(chalk.redBright("Start with country code of your WhatsApp Number, Example : +923239601585")))
 
-            phoneNumber = await question(chalk.bgBlack(chalk.greenBright(`
+                phoneNumber = await question(chalk.bgBlack(chalk.greenBright(`
 ██╗   ██╗███████╗ █████╗ ███╗   ███╗ █████╗ 
 ██║   ██║██╔════╝██╔══██╗████╗ ████║██╔══██╗
 ██║   ██║███████╗███████║██╔████╔██║███████║
@@ -98,18 +119,17 @@ const {  state, saveCreds } =await useMultiFileAuthState(`./session`)
  ╚═════╝ ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝╚═╝  ╚═╝
              
 Please type your WhatsApp number \nFor example: +923239601585 : `)))
-            phoneNumber = phoneNumber.replace(/[^0-9]/g, '')
-            rl.close()
-         }
-      }
+                phoneNumber = phoneNumber.replace(/[^0-9]/g, '')
+                rl.close()
+            }
+        }
 
-      setTimeout(async () => {
-         let code = await Usama.requestPairingCode(phoneNumber)
-         code = code?.match(/.{1,4}/g)?.join("-") || code
-         console.log(chalk.black(chalk.bgGreen(`Your Pairing Code : `)), chalk.black(chalk.white(code)))
-      }, 3000)
-   }
-
+        setTimeout(async () => {
+            let code = await Usama.requestPairingCode(phoneNumber)
+            code = code?.match(/.{1,4}/g)?.join("-") || code
+            console.log(chalk.black(chalk.bgGreen(`Your Pairing Code : `)), chalk.black(chalk.white(code)))
+        }, 3000)
+    }
     Usama.ev.on('messages.upsert', async chatUpdate => {
         //console.log(JSON.stringify(chatUpdate, undefined, 2))
         try {
@@ -196,15 +216,15 @@ Please type your WhatsApp number \nFor example: +923239601585 : `)))
 
     Usama.serializeM = (m) => smsg(Usama, m, store)
 
-Usama.ev.on("connection.update",async  (s) => {
+    Usama.ev.on("connection.update", async (s) => {
         const { connection, lastDisconnect } = s
         if (connection == "open") {
-        	console.log(chalk.magenta(` `))
+            console.log(chalk.magenta(` `))
             console.log(chalk.yellow(`🌿Connected to => ` + JSON.stringify(Usama.user, null, 2)))
-			await delay(1999)
+            await delay(1999)
             console.log(chalk.yellow(`\n\n                  ${chalk.bold.blue(`[ ${botname} ]`)}\n\n`))
             console.log(chalk.cyan(`< ================================================== >`))
-	        console.log(chalk.magenta(`
+            console.log(chalk.magenta(`
 ██╗   ██╗███████╗ █████╗ ███╗   ███╗ █████╗ 
 ██║   ██║██╔════╝██╔══██╗████╗ ████║██╔══██╗
 ██║   ██║███████╗███████║██╔████╔██║███████║
@@ -221,6 +241,8 @@ Usama.ev.on("connection.update",async  (s) => {
             startUsama()
         }
     })
+    
+  
     Usama.ev.on('creds.update', saveCreds)
     Usama.ev.on("messages.upsert",  () => { })
 
